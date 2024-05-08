@@ -30,15 +30,15 @@ func (c Client) PrettyPrint() {
 	fmt.Printf("Client %s démarre \n", c.Name)
 }
 
+// lis les fichiers json et decode le contenu json dans une liste de type Data (structure ci-dessus)
 func LireFichier(name string) ([]Data, error) {
-	// fmt.Printf("ouverture du fichier %s \n", name)
+
 	file, err := os.Open(name)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer file.Close()
-	// Décodez le contenu JSON dans une structure de données
 	var data []Data
 	if err := json.NewDecoder(file).Decode(&data); err != nil {
 		log.Fatal(err)
@@ -46,7 +46,8 @@ func LireFichier(name string) ([]Data, error) {
 	return data, nil
 }
 
-func Extract_data(data []Data,num_jour int) (*pb.Request){
+// On crée les requêtes à envoyer (les strucutres dans le fichiers .proto) en utilisant les données de la liste de type data
+func Extract_data(data []Data, num_jour int) *pb.Request {
 
 	request := &pb.Request{}
 	request.Day = int32(num_jour)
@@ -54,6 +55,8 @@ func Extract_data(data []Data,num_jour int) (*pb.Request){
 	for _, d := range data {
 
 		device := &pb.Device{}
+
+		//pour chaque device, on a 3 opérations create, delete et update
 
 		operation_create := &pb.Operation{}
 		operation_delete := &pb.Operation{}
@@ -63,19 +66,19 @@ func Extract_data(data []Data,num_jour int) (*pb.Request){
 		operation_delete.Type = "DELETE"
 		operation_update.Type = "UPDATE"
 
+		//On traite les données sur le client, pour chaques opérations d'un device, on va envoyé le nombres de réussite et d'échecs
+
 		create_has_succeed := 0
 		create_has_not_succeed := 0
 		delete_has_succeed := 0
 		delete_has_not_succeed := 0
 		update_has_succeed := 0
 		update_has_not_succeed := 0
-		//fmt.Printf("Nom du périphérique : %s\n", d.Device_name)
+
 		device.DeviceName = d.Device_name
-		// fmt.Printf("Verif client nom du device %v \n", d.Device_name)
-		//fmt.Println("Opérations :")
+
 		for _, op := range d.Operations {
-			// fmt.Printf("Verif du client du nom operation %v \n", op.Type)
-			// fmt.Printf("Verif client du has suceed %v \n", op.Has_succeeded)
+
 			if op.Type == "CREATE" {
 				if op.Has_succeeded {
 					create_has_succeed++
@@ -97,11 +100,6 @@ func Extract_data(data []Data,num_jour int) (*pb.Request){
 					update_has_not_succeed++
 				}
 			}
-
-			//fmt.Printf("  - Type : %s, Réussi : %t\n", op.Type, op.Has_succeeded)
-			//operation := &pb.Operation{Type: op.Type, HasSucceed: op.Has_succeeded}
-			//operations = append(operations, operation)
-
 		}
 
 		operation_create.HasSucceed = int32(create_has_succeed)
@@ -112,11 +110,14 @@ func Extract_data(data []Data,num_jour int) (*pb.Request){
 		operation_update.HasNotSucceed = int32(update_has_not_succeed)
 
 		device.Operations = append(device.Operations, operation_create, operation_delete, operation_update)
-		request.Devices = append(request.Devices, device)	
+		request.Devices = append(request.Devices, device)
 	}
 	return request
 }
 
+// fonction appellé dans le main.go
+// démarre la connexion avec le serveur sur le port 8089
+// Lis tous les fichiers journee.json dans le dossier donnees
 func RunClient() {
 	fmt.Println("Démarrage du client")
 	conn, err := grpc.Dial(":8089", grpc.WithInsecure())
@@ -131,6 +132,8 @@ func RunClient() {
 		nomFichier := fmt.Sprintf("donnees/journee_%d.json", i)
 		_, err := os.Stat(nomFichier)
 
+		//quand le fichier n'existe pas alors cela veut dire qu'on a lu tous les fichiers disponibles
+		//on sort donc de la boucle et on arrête la communication avec le serveur
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Printf("Le fichier %s n'existe pas. Sortie de la boucle.\n", nomFichier)
@@ -142,8 +145,8 @@ func RunClient() {
 		if err != nil {
 			log.Fatalf("failed to dial server: %v", err)
 		}
-		
-		request := Extract_data(data,i)
+
+		request := Extract_data(data, i)
 		response, err := c.Create(context.Background(), request)
 		if err != nil {
 			log.Fatalf("failed to call CreateClient RPC method: %v", err)

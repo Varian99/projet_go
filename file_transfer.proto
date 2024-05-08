@@ -2,16 +2,28 @@ syntax="proto3";
 
 option go_package="JulienHugo/Projet_RT0805/file_transfer";
 
+//Strucures utiulisés pour les requêtes grpc
+
+//Pour chaque types d'opérations, on stockes les réussites et les échecs
 message Operation {
     string type = 1;
     int32 has_succeed = 2;
     int32 has_not_succeed = 3;
 }
+
+//Pour un device, il y a plusieurs opérations (seulement 3)
+//On s'est rendu compte qu'on aurait pût utilisé un tableau de 3 opérations
+//au lieu d'utiliser repeated, ça serait peut-être plus optimisé mais on est
+//résté sur cela vu que ça ne dérange pas vraiment, on ne voulait pas changé
+//une structure aussi importante alors qu'on a implémenté la plupart des fonctionalités
 message Device {
     string device_name = 1;
     repeated Operation operations = 2;
 }
 
+//On lit un par un les fichiers donnée_journée
+//donc pour une requête grpc, on envoit la journée concernés
+//et les devices qui ont effectués des opérations durant cette journée
 message Request {
     int32 day = 1;
     repeated Device devices = 2;
