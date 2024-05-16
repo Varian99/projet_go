@@ -17,20 +17,6 @@ type myFileTransferServer struct {
 	pb.UnimplementedFileTransferServer
 }
 
-//mongoDB utilise le format bson donc il fallait créer une nouvelle strucure de donnée
-//pour convertir la requête reçu pour qu'elle soit stockée de manière approprié
-
-type MongoDBData struct {
-	DeviceName string          `bson:"device_name"`
-	Operations []OperationData `bson:"operations"`
-}
-
-type OperationData struct {
-	Type          string `bson:"type"`
-	HasSucceed    int    `bson:"has_succeed"`
-	HasNotSucceed int    `bson:"has_not_succeed"`
-}
-
 // Cette fonction est appellé quand le serveur reçoit une requête de la part du client
 // il convertit la requête au format bson en utilisant la structure mongoDBData
 // et utilise la fonction StoreToMongoDB pour stocker les données dans mongodb
@@ -39,17 +25,7 @@ func (s myFileTransferServer) Create(ctx context.Context, req *pb.Request) (*pb.
 	log.Printf("Stockage dans mangoDB")
 	day := req.Day
 	for _, device := range req.Devices {
-		data := MongoDBData{
-			DeviceName: device.DeviceName,
-		}
-		for _, op := range device.Operations {
-			data.Operations = append(data.Operations, OperationData{
-				Type:          op.Type,
-				HasSucceed:    int(op.HasSucceed),
-				HasNotSucceed: int(op.HasNotSucceed),
-			})
-		}
-		s.StoreToMongoDB(data, int(day))
+		s.StoreToMongoDB(device, int(day))
 	}
 
 	return &pb.Response{}, nil
@@ -57,7 +33,7 @@ func (s myFileTransferServer) Create(ctx context.Context, req *pb.Request) (*pb.
 
 // fonction qui stocke les données data dans la base de donnée Donnee_Projet et dans la collections donnee_journee corespondante
 // On crée une collection pour chaque journée
-func (s myFileTransferServer) StoreToMongoDB(data MongoDBData, day int) error {
+func (s myFileTransferServer) StoreToMongoDB(data *pb.Device, day int) error {
 	client, err := mongo.Connect(context.Background(),
 		options.Client().ApplyURI("mongodb://root:root@localhost:27017/"))
 	if err != nil {
